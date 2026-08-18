@@ -5,12 +5,13 @@ the response changes, callers fall back to a blank scaffold.
 """
 from __future__ import annotations
 
+import ast
 import json
 import re
 import urllib.error
 import urllib.request
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 
 ALL_PROBLEMS_URL = "https://leetcode.com/api/problems/all/"
 GRAPHQL_URL = "https://leetcode.com/graphql"
@@ -29,6 +30,8 @@ class ProblemMeta:
     difficulty: str = "Unknown"
     tags: list = field(default_factory=list)
     content_text: str = ""
+    param_names: list = field(default_factory=list)
+    examples: list = field(default_factory=list)
 
 
 def _get_json(url: str, data: Optional[dict] = None) -> Optional[dict]:
@@ -72,13 +75,71 @@ def _strip_html(html: str) -> str:
     return "\n".join(cleaned).strip()
 
 
+def _split_top_level(text: str, sep: str = ",") -> list[str]:
+    """Split on `sep` but ignore separators nested inside brackets."""
+    parts, depth, current = [], 0, []
+    for ch in text:
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth -= 1
+        if ch == sep and depth == 0:
+            parts.append("".join(current))
+            current = []
+        else:
+            current.append(ch)
+    if current:
+        parts.append("".join(current))
+    return [p.strip() for p in parts if p.strip()]
+
+
+def _parse_value(raw: str) -> Any:
+    raw = raw.strip()
+    if "=" in raw.split("(")[0]:
+        raw = raw.split("=", 1)[1].strip()
+    try:
+        return ast.literal_eval(raw)
+    except (ValueError, SyntaxError):
+        return raw
+
+
+_EXAMPLE_RE = re.compile(r"Input:\s*(.+?)\s*\nOutput:\s*(.+?)(?:\n|$)")
+
+
+def parse_examples(content_text: str) -> list[dict]:
+    """Best-effort extraction of (input, output) pairs from the prose examples."""
+    examples = []
+    for m in _EXAMPLE_RE.finditer(content_text or ""):
+        input_raw, output_raw = m.groups()
+        try:
+            output = ast.literal_eval(output_raw.strip())
+        except (ValueError, SyntaxError):
+            continue
+        args = [_parse_value(p) for p in _split_top_level(input_raw)]
+        if not args:
+            continue
+        examples.append({"input": args, "output": output})
+    return examples
+
+
+def parse_param_names(meta_data_raw: str, arity: int) -> list[str]:
+    try:
+        meta = json.loads(meta_data_raw or "{}")
+    except (ValueError, TypeError):
+        meta = {}
+    names = [p.get("name") for p in meta.get("params", []) if p.get("name")]
+    if len(names) == arity:
+        return names
+    return [f"arg{i}" for i in range(arity)]
+
+
 def fetch_by_slug(slug: str) -> Optional[ProblemMeta]:
     query = {
         "query": (
             "query questionData($titleSlug: String!) { "
             "question(titleSlug: $titleSlug) { "
             "questionFrontendId title titleSlug difficulty content "
-            "topicTags { name } } }"
+            "metaData topicTags { name } } }"
         ),
         "variables": {"titleSlug": slug},
     }
@@ -92,13 +153,18 @@ def fetch_by_slug(slug: str) -> Optional[ProblemMeta]:
         number = int(q["questionFrontendId"])
     except (KeyError, TypeError, ValueError):
         return None
+    content_text = _strip_html(q.get("content", ""))
+    examples = parse_examples(content_text)
+    param_names = parse_param_names(q.get("metaData", ""), len(examples[0]["input"])) if examples else []
     return ProblemMeta(
         number=number,
         slug=q.get("titleSlug", slug),
         title=q.get("title", slug),
         difficulty=q.get("difficulty", "Unknown"),
         tags=[t["name"] for t in q.get("topicTags", [])],
-        content_text=_strip_html(q.get("content", "")),
+        content_text=content_text,
+        param_names=param_names,
+        examples=examples,
     )
 
 

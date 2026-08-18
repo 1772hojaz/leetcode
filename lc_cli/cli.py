@@ -21,13 +21,13 @@ def cmd_new(args: argparse.Namespace) -> int:
     number = args.number
     language = args.lang
 
+    meta = None
     existing = storage.find(number)
     if existing and not args.force:
         print(f"Problem {number} already scaffolded at {existing['path']} "
               f"(use --force to re-fetch metadata, or --lang to add another language file).")
         folder = REPO_ROOT / existing["path"]
     else:
-        meta = None
         if not args.no_fetch:
             print(f"Fetching metadata for problem {number}...")
             meta = api.fetch_by_number(number)
@@ -74,8 +74,14 @@ def cmd_new(args: argparse.Namespace) -> int:
     if sol_path.exists() and not args.force:
         print(f"solution.{ext} already exists at {sol_path.relative_to(REPO_ROOT)}, leaving as-is.")
     else:
-        sol_path.write_text(templates.render_solution(language, number, record["slug"], record["title"]))
+        param_names = meta.param_names if meta else None
+        examples = meta.examples if meta else None
+        sol_path.write_text(
+            templates.render_solution(language, number, record["slug"], record["title"], param_names, examples)
+        )
         print(f"Created {sol_path.relative_to(REPO_ROOT)}")
+        if examples:
+            print(f"  Baked in {len(examples)} example test case(s) from leetcode.com.")
 
     print(f"Problem {number} ({record['title']}) ready at {folder.relative_to(REPO_ROOT)}")
     return 0

@@ -1,0 +1,33 @@
+[
+  {
+    "number": 1,
+    "slug": "two-sum",
+    "title": "Two Sum",
+    "difficulty": "Easy",
+    "tags": [
+      "Array",
+      "Hash Table"
+    ],
+    "language": "python",
+    "status": "todo",
+    "path": "problems/0001-two-sum",
+    "created_at": "2026-08-18T14:06:13+00:00",
+    "updated_at": "2026-08-18T17:12:15+00:00"
+  },
+  {
+    "number": 2,
+    "slug": "add-two-numbers",
+    "title": "Add Two Numbers",
+    "difficulty": "Medium",
+    "tags": [
+      "Linked List",
+      "Math",
+      "Recursion"
+    ],
+    "language": "python",
+    "status": "todo",
+    "path": "problems/0002-add-two-numbers",
+    "created_at": "2026-08-18T17:22:11+00:00",
+    "updated_at": "2026-08-18T17:22:11+00:00"
+  }
+]
