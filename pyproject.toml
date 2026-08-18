@@ -1,0 +1,16 @@
+[project]
+name = "lc-cli"
+version = "0.1.0"
+description = "Personal LeetCode practice CLI: scaffold, track, and push solutions"
+requires-python = ">=3.9"
+dependencies = []
+
+[project.scripts]
+lc = "lc_cli.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["lc_cli"]
