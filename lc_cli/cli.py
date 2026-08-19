@@ -61,6 +61,7 @@ def cmd_new(args: argparse.Namespace) -> int:
             language=language,
             status="todo",
             path=str(folder.relative_to(REPO_ROOT)),
+            hints=meta.hints if meta else [],
         )
         storage.upsert(record)
 
@@ -119,6 +120,44 @@ def cmd_show(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_hint(args: argparse.Namespace) -> int:
+    record = storage.find(args.number)
+    if not record:
+        print(f"Problem {args.number} not found. Run `lc new {args.number}` first.")
+        return 1
+
+    if args.reset:
+        storage.reset_hints(args.number)
+        print(f"Hint progress reset for problem {args.number}.")
+        if not args.all:
+            return 0
+
+    hints = record.get("hints") or []
+    if not hints:
+        print(f"Fetching hints for problem {args.number}...")
+        meta = api.fetch_by_slug(record["slug"])
+        if meta is None or not meta.hints:
+            print("  No hints available (offline, rate-limited, or LeetCode has none for this problem).")
+            return 0
+        hints = meta.hints
+        storage.set_hints(args.number, hints)
+        record = storage.find(args.number)
+
+    if args.all:
+        print(f"All hints for problem {args.number} ({record['title']}):")
+        for i, h in enumerate(hints, start=1):
+            print(f"  {i}. {h}")
+        return 0
+
+    hint, revealed, total = storage.reveal_next_hint(args.number)
+    if hint is None:
+        print(f"No more hints left ({revealed}/{total} already revealed). "
+              f"Use --reset to start over or --all to see them all.")
+        return 0
+    print(f"Hint {revealed}/{total}: {hint}")
+    return 0
+
+
 def _run_git(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run(["git", *args], cwd=REPO_ROOT, capture_output=True, text=True)
 
@@ -174,35 +213,85 @@ def cmd_push(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="lc", description="Personal LeetCode practice CLI")
-    sub = parser.add_subparsers(dest="command", required=True)
+    parser = argparse.ArgumentParser(
+        prog="lc",
+        description="Personal LeetCode practice CLI: scaffold problems, track status, "
+                     "get progressive hints, and push solutions to GitHub.",
+        epilog="Run `lc <command> -h` for help on a specific command.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    sub = parser.add_subparsers(dest="command", required=True, metavar="command")
 
-    p_new = sub.add_parser("new", help="Scaffold a new problem")
-    p_new.add_argument("number", type=int, help="LeetCode problem number")
-    p_new.add_argument("title", nargs="?", help="Title/slug hint if fetch fails or is skipped")
-    p_new.add_argument("--lang", default="python", choices=sorted(templates.EXTENSIONS))
+    p_new = sub.add_parser(
+        "new",
+        help="Scaffold a new problem",
+        description="Scaffold a new problem: fetches title/difficulty/tags/description "
+                     "from leetcode.com when online, and writes a solution stub.",
+    )
+    p_new.add_argument("number", type=int, help="LeetCode problem number, e.g. 1")
+    p_new.add_argument("title", nargs="?", help="Title/slug hint used if fetching fails or --no-fetch is set")
+    p_new.add_argument("--lang", default="python", choices=sorted(templates.EXTENSIONS),
+                        help="Language for the solution stub (default: python)")
     p_new.add_argument("--no-fetch", action="store_true", help="Skip fetching metadata from leetcode.com")
-    p_new.add_argument("--force", action="store_true", help="Overwrite existing solution/metadata")
+    p_new.add_argument("--force", action="store_true", help="Overwrite an existing solution/metadata")
     p_new.set_defaults(func=cmd_new)
 
-    p_list = sub.add_parser("list", help="List scaffolded problems")
-    p_list.add_argument("--status", choices=storage.STATUSES)
+    p_list = sub.add_parser(
+        "list",
+        help="List scaffolded problems",
+        description="List all problems that have been scaffolded with `lc new`.",
+    )
+    p_list.add_argument("--status", choices=storage.STATUSES, help="Only show problems with this status")
     p_list.set_defaults(func=cmd_list)
 
-    p_status = sub.add_parser("status", help="Update a problem's status")
-    p_status.add_argument("number", type=int)
-    p_status.add_argument("state", choices=storage.STATUSES)
+    p_status = sub.add_parser(
+        "status",
+        help="Update a problem's status",
+        description="Update the status of a scaffolded problem (todo / attempted / solved).",
+    )
+    p_status.add_argument("number", type=int, help="LeetCode problem number")
+    p_status.add_argument("state", choices=storage.STATUSES, help="New status to set")
     p_status.set_defaults(func=cmd_status)
 
-    p_show = sub.add_parser("show", help="Show stored metadata for a problem")
-    p_show.add_argument("number", type=int)
+    p_show = sub.add_parser(
+        "show",
+        help="Show stored metadata for a problem",
+        description="Print everything stored in index.json for one problem.",
+    )
+    p_show.add_argument("number", type=int, help="LeetCode problem number")
     p_show.set_defaults(func=cmd_show)
 
-    p_push = sub.add_parser("push", help="Commit local changes and push to GitHub")
-    p_push.add_argument("-m", "--message", help="Commit message")
+    p_hint = sub.add_parser(
+        "hint",
+        help="Reveal hints for a problem, one at a time",
+        description="Reveal LeetCode's official hints for a problem, one at a time so you "
+                     "don't spoil more than you need. Hints are fetched from leetcode.com on "
+                     "first use and cached in index.json; how many you've revealed is also "
+                     "tracked there so repeated calls advance through the list.",
+        epilog=(
+            "Examples:\n"
+            "  lc hint 1            # reveal the next not-yet-seen hint for problem 1\n"
+            "  lc hint 1            # run again to reveal the one after that\n"
+            "  lc hint 1 --all      # show every hint at once, without affecting progress\n"
+            "  lc hint 1 --reset    # forget revealed progress and start over\n"
+        ),
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    p_hint.add_argument("number", type=int, help="LeetCode problem number")
+    p_hint.add_argument("--all", action="store_true", help="Show all hints at once instead of just the next one")
+    p_hint.add_argument("--reset", action="store_true",
+                         help="Reset revealed-hint progress for this problem back to zero")
+    p_hint.set_defaults(func=cmd_hint)
+
+    p_push = sub.add_parser(
+        "push",
+        help="Commit local changes and push to GitHub",
+        description="Commit local changes (optionally scoped to one problem) and push to origin.",
+    )
+    p_push.add_argument("-m", "--message", help="Commit message (default: auto-generated)")
     p_push.add_argument("-n", "--number", type=int, help="Problem number (used to build a default commit message)")
     p_push.add_argument("--path", help="Restrict `git add` to this path (default: whole repo)")
-    p_push.add_argument("-y", "--yes", action="store_true", help="Skip confirmation prompt")
+    p_push.add_argument("-y", "--yes", action="store_true", help="Skip the confirmation prompt")
     p_push.set_defaults(func=cmd_push)
 
     return parser

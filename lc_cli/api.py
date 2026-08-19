@@ -32,6 +32,7 @@ class ProblemMeta:
     content_text: str = ""
     param_names: list = field(default_factory=list)
     examples: list = field(default_factory=list)
+    hints: list = field(default_factory=list)
 
 
 def _get_json(url: str, data: Optional[dict] = None) -> Optional[dict]:
@@ -139,7 +140,7 @@ def fetch_by_slug(slug: str) -> Optional[ProblemMeta]:
             "query questionData($titleSlug: String!) { "
             "question(titleSlug: $titleSlug) { "
             "questionFrontendId title titleSlug difficulty content "
-            "metaData topicTags { name } } }"
+            "metaData topicTags { name } hints } }"
         ),
         "variables": {"titleSlug": slug},
     }
@@ -156,6 +157,7 @@ def fetch_by_slug(slug: str) -> Optional[ProblemMeta]:
     content_text = _strip_html(q.get("content", ""))
     examples = parse_examples(content_text)
     param_names = parse_param_names(q.get("metaData", ""), len(examples[0]["input"])) if examples else []
+    hints = [_strip_html(h) for h in (q.get("hints") or [])]
     return ProblemMeta(
         number=number,
         slug=q.get("titleSlug", slug),
@@ -165,6 +167,7 @@ def fetch_by_slug(slug: str) -> Optional[ProblemMeta]:
         content_text=content_text,
         param_names=param_names,
         examples=examples,
+        hints=hints,
     )
 
 

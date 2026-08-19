@@ -12,7 +12,13 @@
     "status": "todo",
     "path": "problems/0001-two-sum",
     "created_at": "2026-08-18T14:06:13+00:00",
-    "updated_at": "2026-08-18T17:12:15+00:00"
+    "updated_at": "2026-08-19T07:29:17+00:00",
+    "hints": [
+      "A really brute force way would be to search for all possible pairs of numbers but that would be too slow. Again, it's best to try out brute force solutions just for completeness. It is from these brute force solutions that you can come up with optimizations.",
+      "So, if we fix one of the numbers, say x, we have to scan the entire array to find the next number y which is value - x where value is the input parameter. Can we change our array somehow so that this search becomes faster?",
+      "The second train of thought is, without changing the array, can we use additional space somehow? Like maybe a hash map to speed up the search?"
+    ],
+    "hints_revealed": 0
   },
   {
     "number": 2,

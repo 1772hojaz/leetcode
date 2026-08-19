@@ -31,6 +31,12 @@ lc status 1 solved
 # Inspect stored metadata for one problem
 lc show 1
 
+# Get stuck? Reveal LeetCode's official hints one at a time
+lc hint 1                      # reveal the next not-yet-seen hint
+lc hint 1                      # run again for the next one
+lc hint 1 --all                # show every hint at once
+lc hint 1 --reset              # start over from the first hint
+
 # Commit + push everything (or just one problem) to GitHub
 lc push                        # commit all changes, confirm, then push
 lc push --number 1             # commit only problems/0001-two-sum, with an auto message
@@ -46,7 +52,10 @@ problems/0001-two-sum/
 ```
 
 An `index.json` at the repo root tracks number, title, difficulty, tags,
-language, and status (`todo` / `attempted` / `solved`) for every scaffolded
-problem.
+language, status (`todo` / `attempted` / `solved`), and hint progress for
+every scaffolded problem.
 
 Supported `--lang` values: `python`, `javascript`, `java`, `cpp`, `go`.
+
+Run `lc -h` for the full command list, or `lc <command> -h` for help on a
+specific command (e.g. `lc hint -h`).

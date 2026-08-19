@@ -24,6 +24,8 @@ class ProblemRecord:
     language: str = "python"
     status: str = "todo"
     path: str = ""
+    hints: list = field(default_factory=list)
+    hints_revealed: int = 0
     created_at: str = ""
     updated_at: str = ""
 
@@ -79,6 +81,50 @@ def set_status(number: int, status: str) -> bool:
     for r in records:
         if r["number"] == number:
             r["status"] = status
+            r["updated_at"] = _now()
+            save_index(records)
+            return True
+    return False
+
+
+def set_hints(number: int, hints: list) -> bool:
+    """Cache freshly fetched hints for a problem, without touching progress."""
+    records = load_index()
+    for r in records:
+        if r["number"] == number:
+            r["hints"] = hints
+            r["updated_at"] = _now()
+            save_index(records)
+            return True
+    return False
+
+
+def reveal_next_hint(number: int) -> tuple[Optional[str], int, int]:
+    """Reveal the next unseen hint for a problem.
+
+    Returns (hint_text_or_None, revealed_count, total_count). hint_text is
+    None if there are no more hints left to reveal.
+    """
+    records = load_index()
+    for r in records:
+        if r["number"] == number:
+            hints = r.get("hints", [])
+            revealed = r.get("hints_revealed", 0)
+            if revealed >= len(hints):
+                return None, revealed, len(hints)
+            hint = hints[revealed]
+            r["hints_revealed"] = revealed + 1
+            r["updated_at"] = _now()
+            save_index(records)
+            return hint, revealed + 1, len(hints)
+    return None, 0, 0
+
+
+def reset_hints(number: int) -> bool:
+    records = load_index()
+    for r in records:
+        if r["number"] == number:
+            r["hints_revealed"] = 0
             r["updated_at"] = _now()
             save_index(records)
             return True
