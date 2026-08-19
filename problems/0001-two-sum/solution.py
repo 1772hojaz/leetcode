@@ -1,3 +1,4 @@
+#!/bin/python3
 """
 1. Two Sum
 https://leetcode.com/problems/two-sum/
@@ -5,7 +6,11 @@ https://leetcode.com/problems/two-sum/
 
 class Solution:
     def solve(self, nums, target):
-        raise NotImplementedError
+        length = len(nums)
+        for i in range(0, length):
+            for j in range(i+1, length):
+                if nums[i] + nums[j] == target:
+                    return [i,j]
 
 
 if __name__ == "__main__":
@@ -22,3 +27,4 @@ if __name__ == "__main__":
         assert result == expected, f"solve{args} = {result}, expected {expected}"
 
     print("All tests passed.")
+
