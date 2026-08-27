@@ -2,7 +2,19 @@
 from node import ListNode
 
 class Solution:
+    """
+    Represents the solution for adding two linked lists
+    """
     def solve(self, l1,l2):
+        """
+        Adds two linked lists
+
+        Args:
+        l1: the fist linked list
+        l2: the seconde linked list
+
+        Returns: the sum of l1 and l2
+        """
         dummy_head = ListNode()
         current = dummy_head
         carry = 0
