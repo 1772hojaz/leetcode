@@ -12,12 +12,10 @@ class ListNode():
             current.next = ListNode(v)
             current = current.next
         return dummy.next
-    
+
     def linked_to_list(node):
         result = []
         while node:
             result.append(node.val)
             node = node.next
-
         return result
-
