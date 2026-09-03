@@ -1,3 +1,13 @@
+#!/bin/python3
+"
+This is a solution for adding two linked lists.
+Args:
+    l1: is the first linked list
+    l2: is the second linked list
+
+Return:
+    head.next: Is the head of the actual linked list solution because head is the dummy one
+"
 class Solution:
     def add(self, l1, l2):
         dumy_node = LinkedList()
